@@ -9,6 +9,52 @@
 
 ---
 
+## 附：仓库 / 项目简介文案（可直接复制）
+
+建仓库或填 Vercel 项目描述时，直接从下面挑一条粘贴。
+
+**GitHub 仓库 About（中文一行，推荐）**
+
+```
+覆盖 46 个欧洲国家/地区的每日新闻热点地图：点选国家查看当日 Top 3 热点新闻，支持聚合数据 / GDELT 真实新闻与 Mock 自动兜底。
+```
+
+**GitHub 仓库 About（英文一行）**
+
+```
+Interactive daily news heat map of 46 European countries — click a country to see its top 3 stories. Next.js 14, real news via Juhe / GDELT with automatic mock fallback.
+```
+
+**GitHub Topics（标签，逐个小写英文，空格换成进入下一个）**
+
+```
+nextjs  typescript  tailwindcss  shadcn-ui  react-simple-maps  d3-geo  geojson  data-visualization  news-aggregator  europe  map  vercel
+```
+
+**Vercel 项目描述（短）**
+
+```
+欧洲每日新闻热点地图 · 46 国 Top 3 热点 · Next.js 14
+```
+
+**README / 作品集用的两段版本**
+
+```
+欧洲每日新闻热点地图是一个可交互的欧洲新闻热度看板：地图上覆盖 46 个欧洲国家/地区，
+鼠标悬停高亮并显示国名，点击国家即从右侧（桌面）或底部（移动端）抽屉展开当日 Top 3 热点新闻，
+支持按日期回溯。地图按数据源上色——绿色代表聚合数据抓到的真实中文国际报道，
+灰色代表演示数据，一眼就能看出哪些国家真有新闻。
+
+技术上是一套「三数据源 + 自动兜底」的工程实现：聚合数据（中文媒体国际报道，
+关键词与来源域名两级过滤）、GDELT（按 FIPS 国家代码过滤）与确定性 Mock，
+任一真实源失败或过滤后为空都自动回退 Mock，前端始终有内容且不报错。
+地图数据由脚本从 Natural Earth 1:50m 生成（补 ISO_A2 属性、24px 微型国家点击热区），
+地图投影按容器像素实时 fit；针对聚合数据 50 次/天的免费额度做了三层节流与共享缓存保护。
+配套 75 项离线自检与 107 项浏览器端到端验收，覆盖交互、响应式、控制台与无障碍。
+```
+
+---
+
 ## 前置检查清单（本地已就绪）
 
 | 项目 | 状态 |
