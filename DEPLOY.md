@@ -173,10 +173,30 @@ git push -u origin main
 2. 逐条添加：
    - **Key**：`NEWS_PROVIDER`，**Value**：`juhe`
    - **Key**：`JUHE_NEWS_KEY`，**Value**：你的 AppKey（粘贴后即为「加密存储」）
-3. 每条变量的 **Environments** 勾选：**Production**、**Preview**、**Development**（三个都勾最省事）
+3. 每条变量的 **Environments** 勾选：**Production**（想让它对 PR 预览部署也生效就再勾 **Preview**）
 4. 点 **Save**
 5. 回到 **Deployments** 标签 → 最新一次部署右侧 **⋯** → **Redeploy**
    （环境变量只在**构建/部署时**注入，改完必须重新部署才生效）
+
+> ⚠️ **实测坑：Development 勾不上，这是正常的**
+>
+> 如果发现 Environments 里 **Development 无法和 Production/Preview 同时勾选**，原因是这个变量被标成了
+> **Sensitive**（或团队开启了「Enforce Sensitive Environment Variables」）。Vercel 官方明确说明：
+>
+> > Sensitive variables can only target Production and Preview. If Development is selected, the switch is disabled.
+> > That's by design: your local `vercel env pull` flow needs readable values, so Development-scoped variables stay regular.
+> > —— *Sensitive Env Vars · Vercel Academy*
+>
+> 逻辑上说得通：Development 环境变量的作用是让 `vercel env pull` 把值**拉到本地明文文件**，
+> 而 Sensitive 是「只写不可读」，两者天然冲突。
+>
+> **而且你根本不需要 Development**：Vercel 的 Development 环境只服务于 `vercel dev` 与 `vercel env pull`；
+> 本地跑的是 `npm run dev` + 项目里的 `.env.local`，Vercel 的环境变量不会注入到本地进程。
+> 所以**只勾 Production 就是完整正确的配置**，不会影响任何功能。
+> 若确实想让 `vercel env pull` 也能拿到，官方建议是**再建一个同名变量、不勾 Sensitive、只勾 Development**。
+>
+> 💡 **`JUHE_NEWS_KEY` 建议不要勾 Sensitive**：Sensitive 一旦保存就永久无法再读出（连你自己也不能），
+> 以后连后台都复制不出来（只能重新申请 key）。个人项目 + 本地 `.env.local` 已有副本，收益很小。
 
 ### 4.3 用 Vercel CLI 设置（可选，适合习惯命令行的场景）
 
@@ -185,7 +205,7 @@ cd "C:\Users\physio\Documents\deepseek harness\europe-news-map"
 npx vercel login                       # 浏览器授权
 npx vercel link                        # 关联到刚建的 Vercel 项目
 
-# 交互式添加（会提示选择 Environments，三个都选）
+# 按环境分别添加（这里只加 production，需要预览部署就再来一次 --preview 用 preview）
 npx vercel env add NEWS_PROVIDER production
 npx vercel env add JUHE_NEWS_KEY production
 
