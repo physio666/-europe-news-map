@@ -10,6 +10,32 @@
 
 ---
 
+## 部署到 Vercel（免费 + 永久公网地址）
+
+完整的逐步流程见 **[DEPLOY.md](./DEPLOY.md)**（从建 GitHub 仓库到 Vercel 导入、环境变量、验证清单、免费额度注意事项）。
+
+一句话版：
+
+```powershell
+# 1) 本地仓库已就绪（git init + 首次提交已完成）
+git remote add origin https://github.com/<你的用户名>/europe-news-map.git
+git push -u origin main        # 若本机连不上 github.com，见 DEPLOY.md「步骤 2 的两种走法」
+
+# 2) 在 https://vercel.com/new 导入该仓库（Framework 自动识别为 Next.js）
+
+# 3) 在 Vercel → Settings → Environment Variables 添加：
+#    NEWS_PROVIDER = juhe
+#    JUHE_NEWS_KEY = 你的聚合数据 AppKey      ← 只填在 Vercel，绝不提交进仓库
+
+# 4) 点 Deploy（改过环境变量后记得 Redeploy），拿到 https://<项目名>.vercel.app
+```
+
+> 部署前已在代码里处理好的三件事：两个 API 路由声明 `runtime = "nodejs"`（Provider 用 `node:https`）、
+> `preferredRegion = "hkg1"`（香港节点，离聚合数据与国内读者最近）、
+> 聚合数据的 `http://` 缩略图会被 HTTPS 页面按混合内容拦掉 —— 现在只保留 `https` 图片。
+
+---
+
 ## 快速开始
 
 ```bash
