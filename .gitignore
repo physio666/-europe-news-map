@@ -21,7 +21,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# env
+# env（只有模板 .env.example 会被提交，其余一律忽略）
+.env
 .env*.local
 
 # 沙箱内安装用的本地缓存（不提交）

@@ -1,0 +1,53 @@
+name: CI
+
+# 每次推送 main、每个 PR、以及手动触发都会跑。
+# 全部步骤都是**离线**的：typecheck + 三个 Provider 离线自检 + 生产构建，
+# 不需要 NewsData.io / 聚合数据的任何 Key，因此任何人都能在 fork 上直接跑通。
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# 同一分支连续推送时，取消上一次还在跑的构建
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline-checks:
+    name: typecheck + 离线自检 + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # 必须是 Node ≥ 22.18：scripts/*.mts 用 Node 原生 TypeScript 类型擦除直接执行，
+          # 不经过 tsx / ts-node。低于这个版本会因为「不认识 .mts 类型语法」直接报错。
+          node-version: "22.18.0"
+          cache: npm
+
+      - name: 安装依赖（按 package-lock.json）
+        run: npm ci
+
+      - name: TypeScript 类型检查
+        run: npm run typecheck
+
+      - name: Provider 离线自检（GDELT：FIPS 映射 / 解析 / 限流重试 / 缓存 / 兜底）
+        run: npm run check:providers
+
+      - name: NewsData.io 离线自检（语言映射 / 字段映射 / 缓存 / 额度 / Key 不外泄）
+        run: npm run check:newsdata
+
+      - name: 聚合数据离线自检（两级过滤 / 错误码 / 额度保护）
+        run: npm run check:juhe
+
+      - name: 生产构建
+        run: npm run build
+        env:
+          # CI 里不配置任何 Key，明确用 Mock 数据源，避免构建期意外访问上游
+          NEWS_PROVIDER: mock
