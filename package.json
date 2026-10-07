@@ -2,7 +2,7 @@
   "name": "europe-news-map",
   "version": "0.1.0",
   "private": true,
-  "description": "覆盖 46 个欧洲国家/地区的每日新闻热点地图：点选国家查看当日 Top 3 热点新闻，支持聚合数据/GDELT 真实新闻与 Mock 自动兜底。Next.js 14 App Router + TypeScript + Tailwind + shadcn/ui + react-simple-maps",
+  "description": "覆盖 46 个欧洲国家/地区的每日新闻热点地图：点选国家查看当日 Top 3 热点新闻，支持 NewsData.io/GDELT/聚合数据真实新闻与 Mock 自动兜底。Next.js 14 App Router + TypeScript + Tailwind + shadcn/ui + react-simple-maps",
   "scripts": {
     "dev": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/dev.mts",
     "build": "next build",
@@ -14,6 +14,7 @@
     "verify": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify.mts",
     "check:providers": "node --import ./scripts/loader/register.mjs --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-providers.mts",
     "check:juhe": "node --import ./scripts/loader/register.mjs --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-juhe.mts",
+    "check:newsdata": "node --import ./scripts/loader/register.mjs --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-newsdata.mts",
     "check:gdelt": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-gdelt.mts",
     "check:browser": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/browser-check.mts"
   },

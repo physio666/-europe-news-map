@@ -58,7 +58,7 @@ async function getJson(path: string) {
   return { status: response.status, body, text, headers: response.headers };
 }
 
-/** 当前服务配置的数据源（由 /api/news/top 的 X-Provider-Mode 头给出）：mock | gdelt */
+/** 当前服务配置的数据源（由 /api/news/top 的 X-Provider-Mode 头给出）：mock | newsdata | juhe | gdelt */
 async function detectProviderMode(): Promise<string> {
   try {
     const probe = await getJson("/api/news/top?country=DE&date=" + new Date().toISOString().slice(0, 10));
@@ -195,7 +195,12 @@ async function main() {
     sourceSeen.add(payload.dataSource);
     if (payload.country !== country.code) issues.push(`${country.code} country 字段错误`);
     if (payload.date !== DATE_A) issues.push(`${country.code} date 字段错误`);
-    if (payload.dataSource !== "mock" && payload.dataSource !== "gdelt" && payload.dataSource !== "juhe") {
+    if (
+      payload.dataSource !== "mock" &&
+      payload.dataSource !== "gdelt" &&
+      payload.dataSource !== "juhe" &&
+      payload.dataSource !== "newsdata"
+    ) {
       issues.push(`${country.code} dataSource 取值非法：${payload.dataSource}`);
     }
     if (!payload.updatedAt) issues.push(`${country.code} 缺少 updatedAt`);
@@ -249,7 +254,7 @@ async function main() {
           issues.push(`${country.code} #${rank} Mock 摘要异常`);
         }
       } else {
-        // 真实数据源（gdelt / juhe）：标题与链接必须是真东西
+        // 真实数据源（newsdata / gdelt / juhe）：标题与链接必须是真东西
         if (!/^https?:\/\//i.test(String(item.url))) {
           issues.push(`${country.code} #${rank} url 不是 http(s) 链接`);
         }
@@ -376,7 +381,7 @@ async function main() {
   };
   assertEqual(snapshot.date, DATE_A, "响应回显查询日期");
   assertEqual(Object.keys(snapshot.countries ?? {}).length, EUROPE_COUNTRIES.length, `覆盖全部 ${EUROPE_COUNTRIES.length} 个国家`);
-  const allowedSources = ["juhe", "gdelt", "mock", "unknown"];
+  const allowedSources = ["newsdata", "juhe", "gdelt", "mock", "unknown"];
   const badSources = Object.entries(snapshot.countries).filter(
     ([, entry]) => !allowedSources.includes(entry.dataSource),
   );

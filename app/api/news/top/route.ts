@@ -41,9 +41,10 @@ function asciiHeaderValue(value: string, maxLength = 400): string {
  * GET /api/news/top?country=DE&date=2026-09-26&limit=3
  *
  * 数据源由环境变量 NEWS_PROVIDER 决定：
- *  - mock ：MockProvider（默认）
- *  - gdelt：GdeltProvider（GDELT DOC 2.0 公开 API，无需 Key）
- *  - juhe ：JuheProvider（聚合数据新闻头条，需要 JUHE_NEWS_KEY；接口不支持按国家查，靠两级过滤）
+ *  - mock    ：MockProvider（默认）
+ *  - gdelt   ：GdeltProvider（GDELT DOC 2.0 公开 API，无需 Key）
+ *  - juhe    ：JuheProvider（聚合数据新闻头条，需要 JUHE_NEWS_KEY；接口不支持按国家查，靠两级过滤）
+ *  - newsdata：NewsdataProvider（NewsData.io，需要 NEWSDATA_API_KEY；支持按国家 + 主要语言查询）
  * 真实源失败 / 0 条时一律自动回退 Mock，并在 X-Fallback-Reason 头里说明原因。
  *
  * 抓取永远发生在服务端，前端只请求本接口。

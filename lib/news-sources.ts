@@ -6,7 +6,7 @@
  * 真正需要浏览器的 hook 在 lib/use-news-sources.ts。
  *
  * 三类状态：
- *   real    —— 真实新闻（聚合数据 juhe / GDELT）
+ *   real    —— 真实新闻（NewsData.io / 聚合数据 juhe / GDELT）
  *   mock    —— 演示数据（MockProvider，含真实源失败后的自动回退）
  *   unknown —— 本次会话还没查询过（不谎称是 mock）
  */
@@ -33,6 +33,8 @@ export function newsSourceKind(dataSource: string | null | undefined): NewsSourc
 /** 数据源的中文名（徽标与提示共用） */
 export function dataSourceLabel(dataSource: string | null | undefined): string {
   switch ((dataSource ?? "").toLowerCase()) {
+    case "newsdata":
+      return "NewsData.io";
     case "juhe":
       return "聚合数据（中文媒体国际报道）";
     case "gdelt":
@@ -47,7 +49,7 @@ export function dataSourceLabel(dataSource: string | null | undefined): string {
   }
 }
 
-/** 徽标文案：需求指定「数据源：聚合数据（中文媒体国际报道）」/「数据源：Mock 演示数据」 */
+/** 徽标文案：需求指定「数据源：NewsData.io」/「数据源：聚合数据（中文媒体国际报道）」/「数据源：Mock 演示数据」 */
 export function dataSourceBadgeText(dataSource: string | null | undefined): string {
   return `数据源：${dataSourceLabel(dataSource)}`;
 }
@@ -71,7 +73,7 @@ export const SOURCE_PALETTE: Record<NewsSourceKind, SourcePalette> = {
     selected: "hsl(152 62% 48%)",
     ring: "hsl(152 52% 48%)",
     swatch: "hsl(152 52% 42%)",
-    label: "真实新闻（聚合数据）",
+    label: "真实新闻",
     short: "真实",
   },
   mock: {

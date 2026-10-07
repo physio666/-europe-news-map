@@ -91,7 +91,7 @@ export function HomePageClient({ initialDate, providerMode }: HomePageClientProp
         <div className="ml-auto hidden items-center gap-2 lg:flex">
           <Badge variant="outline" className="gap-1.5 font-normal text-muted-foreground">
             <Database className="h-3 w-3" />
-            {/* 需求指定文案：juhe → 聚合数据（中文媒体国际报道）；mock → Mock 演示数据 */}
+            {/* 需求指定文案：newsdata → NewsData.io；juhe → 聚合数据（中文媒体国际报道）；mock → Mock 演示数据 */}
             {dataSourceBadgeText(news.dataSource ?? providerMode)}
           </Badge>
           <Badge variant="secondary" className="gap-1.5 font-normal">
@@ -128,7 +128,7 @@ export function HomePageClient({ initialDate, providerMode }: HomePageClientProp
           </div>
         ) : null}
 
-        {/* 数据源覆盖度提示：只统计「已经查过」的国家，查询本身不消耗聚合数据额度 */}
+        {/* 数据源覆盖度提示：只统计「已经查过」的国家，查询本身不消耗上游额度 */}
         <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 hidden justify-center px-4 sm:flex">
           <div className="rounded-full border border-border/70 bg-card/85 px-3 py-1.5 text-[11px] text-muted-foreground shadow-sm backdrop-blur">
             {providerMode === "mock"

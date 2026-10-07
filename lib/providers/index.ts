@@ -1,19 +1,31 @@
 import { MockProvider, mockProvider } from "./mock-provider";
 import { GdeltProvider, getGdeltProvider } from "./gdelt-provider";
 import { JuheProvider, getJuheProvider } from "./juhe-provider";
+import { NewsdataProvider, getNewsdataProvider } from "./newsdata-provider";
 import { EUROPE_COUNTRIES } from "@/lib/countries";
 import type { NewsItem, NewsProvider, TopNewsResponse } from "./types";
 
 export type { NewsItem, NewsProvider, TopNewsResponse, ApiErrorResponse } from "./types";
-export { MockProvider, mockProvider, GdeltProvider, getGdeltProvider, JuheProvider, getJuheProvider };
+export {
+  MockProvider,
+  mockProvider,
+  GdeltProvider,
+  getGdeltProvider,
+  JuheProvider,
+  getJuheProvider,
+  NewsdataProvider,
+  getNewsdataProvider,
+};
 export { JuheError, JuheNoMatchError } from "./juhe-provider";
+export { NewsdataError, NewsdataNoDataError, languageForCountry } from "./newsdata-provider";
 
-/** 支持的数据源：NEWS_PROVIDER=mock | gdelt | juhe，默认 mock */
-export type NewsProviderId = "mock" | "gdelt" | "juhe";
+/** 支持的数据源：NEWS_PROVIDER=mock | gdelt | juhe | newsdata，默认 mock */
+export type NewsProviderId = "mock" | "gdelt" | "juhe" | "newsdata";
 
 export const MOCK_DATA_SOURCE_ID = "mock";
 export const GDELT_DATA_SOURCE_ID = "gdelt";
 export const JUHE_DATA_SOURCE_ID = "juhe";
+export const NEWSDATA_DATA_SOURCE_ID = "newsdata";
 
 /** queryMode 的取值（聚合数据链路） */
 export type QueryMode = NonNullable<TopNewsResponse["queryMode"]>;
@@ -26,6 +38,7 @@ export function getProviderId(): NewsProviderId {
   const raw = (process.env.NEWS_PROVIDER ?? "").trim().toLowerCase();
   if (raw === "gdelt") return "gdelt";
   if (raw === "juhe") return "juhe";
+  if (raw === "newsdata") return "newsdata";
   return "mock";
 }
 
@@ -36,6 +49,8 @@ export function getNewsProvider(): NewsProvider {
       return getGdeltProvider();
     case "juhe":
       return getJuheProvider();
+    case "newsdata":
+      return getNewsdataProvider();
     default:
       return mockProvider;
   }
@@ -54,23 +69,43 @@ export function getDataSourceId(): string {
  * 「哪个国家当前显示的是真实新闻、哪个是演示数据」的记录。
  *
  * 只在**真的解析过一次**（用户点了某个国家）之后才写入，key = `国家|日期`。
- * /api/news/sources 直接读它即可，因此不会为了统计而额外消耗聚合数据额度
+ * /api/news/sources 直接读它即可，因此不会为了统计而额外消耗上游额度
  * —— 这正是需求里强调的「不要一次性请求 46 个国家」。
+ *
+ * ⚠️ 这份记录**必须挂在 globalThis 上**，不能用模块级变量：
+ * Next.js 会为每个路由单独打包（实测 `.next-dev/server/app/api/news/{top,sources}/route.js`
+ * 与 `app/page.js` 里各有一份本模块的副本），因此模块级 Map 在
+ * `/api/news/top`（写）与 `/api/news/sources`（读）之间**根本不是同一个对象**——
+ * 现象是：点了国家、拿到了真实新闻，地图却始终显示「未查询」（浅色）。
+ * 挂在 globalThis 上即可让同一进程内所有路由共享同一份记录。
  */
 export type ResolvedSourceStatus = { dataSource: string; itemCount: number; updatedAt: string };
 
-const resolvedSources = new Map<string, ResolvedSourceStatus>();
 const MAX_TRACKED_SOURCES = 500;
 
+type ResolvedSourceStore = { map: Map<string, ResolvedSourceStatus> };
+
+const resolvedSourceHost = globalThis as typeof globalThis & {
+  __europeNewsResolvedSources?: ResolvedSourceStore;
+};
+
+function getResolvedSourceStore(): ResolvedSourceStore {
+  if (!resolvedSourceHost.__europeNewsResolvedSources) {
+    resolvedSourceHost.__europeNewsResolvedSources = { map: new Map<string, ResolvedSourceStatus>() };
+  }
+  return resolvedSourceHost.__europeNewsResolvedSources;
+}
+
 function rememberResolvedSource(country: string, date: string, dataSource: string, itemCount: number): void {
+  const { map } = getResolvedSourceStore();
   const key = `${country}|${date}`;
   // 先删后插：让 Map 的插入顺序反映「最近更新」，裁剪时优先丢掉最旧的
-  resolvedSources.delete(key);
-  resolvedSources.set(key, { dataSource, itemCount, updatedAt: new Date().toISOString() });
-  while (resolvedSources.size > MAX_TRACKED_SOURCES) {
-    const oldest = resolvedSources.keys().next().value;
+  map.delete(key);
+  map.set(key, { dataSource, itemCount, updatedAt: new Date().toISOString() });
+  while (map.size > MAX_TRACKED_SOURCES) {
+    const oldest = map.keys().next().value;
     if (oldest === undefined) break;
-    resolvedSources.delete(oldest);
+    map.delete(oldest);
   }
 }
 
@@ -83,6 +118,7 @@ export type DataSourceSnapshotEntry = { dataSource: string; itemCount: number };
  */
 export function resolveDataSourceSnapshot(date: string): Record<string, DataSourceSnapshotEntry> {
   const providerId = getProviderId();
+  const { map } = getResolvedSourceStore();
   const snapshot: Record<string, DataSourceSnapshotEntry> = {};
 
   for (const country of EUROPE_COUNTRIES) {
@@ -90,7 +126,7 @@ export function resolveDataSourceSnapshot(date: string): Record<string, DataSour
       snapshot[country.code] = { dataSource: MOCK_DATA_SOURCE_ID, itemCount: 3 };
       continue;
     }
-    const tracked = resolvedSources.get(`${country.code}|${date}`);
+    const tracked = map.get(`${country.code}|${date}`);
     snapshot[country.code] = tracked
       ? { dataSource: tracked.dataSource, itemCount: tracked.itemCount }
       : { dataSource: "unknown", itemCount: 0 };
@@ -101,12 +137,12 @@ export function resolveDataSourceSnapshot(date: string): Record<string, DataSour
 
 /** 仅供测试：清空记录 */
 export function resetResolvedSources(): void {
-  resolvedSources.clear();
+  getResolvedSourceStore().map.clear();
 }
 
 export type ResolvedTopNews = {
   items: NewsItem[];
-  /** 实际提供数据的来源：mock | gdelt | juhe */
+  /** 实际提供数据的来源：mock | gdelt | juhe | newsdata */
   dataSource: string;
   /** 聚合数据链路的筛选方式；dataSource=mock 时为 "mock" */
   queryMode?: QueryMode;
@@ -135,6 +171,7 @@ export async function resolveTopNews(
     primary?: NewsProvider;
     fallback?: NewsProvider;
     juhe?: JuheProvider;
+    newsdata?: NewsdataProvider;
   } = {},
 ): Promise<ResolvedTopNews> {
   const providerId = deps.providerId ?? getProviderId();
@@ -166,6 +203,27 @@ export async function resolveTopNews(
             `size=${result.diagnostics.poolSize}`,
             `matched=${result.diagnostics.matched}`,
             `pages=${result.diagnostics.pagesFetched}`,
+            `calls=${result.diagnostics.upstreamCallsToday}`,
+          ].join(";"),
+        },
+      };
+    }
+
+    if (providerId === "newsdata") {
+      // NewsData.io 天生支持按国家（+主要语言）查询，不需要做池内过滤
+      const newsdata = deps.newsdata ?? (deps.primary as NewsdataProvider | undefined) ?? getNewsdataProvider();
+      const result = await newsdata.getTopNewsWithMeta(countryCode, date, limit);
+      if (result.items.length === 0) throw new Error("NewsData.io 返回 0 条");
+      rememberResolvedSource(countryCode, date, NEWSDATA_DATA_SOURCE_ID, result.items.length);
+      return {
+        items: result.items,
+        dataSource: NEWSDATA_DATA_SOURCE_ID,
+        headers: {
+          // 一眼确认「是命中缓存还是真的花了 1 credit」，以及本次是否带 language
+          "X-Newsdata-Stats": [
+            `cache=${result.diagnostics.cached ? "hit" : "miss"}`,
+            `lang=${result.diagnostics.language ?? "any"}`,
+            `returned=${result.diagnostics.returned}`,
             `calls=${result.diagnostics.upstreamCallsToday}`,
           ].join(";"),
         },

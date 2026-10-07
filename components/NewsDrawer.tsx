@@ -140,7 +140,7 @@ export function NewsDrawer({
                 data-testid="drawer-data-source-badge"
               >
                 <Database className="h-3 w-3" />
-                {/* 需求指定文案：数据源：聚合数据（中文媒体国际报道）/ 数据源：Mock 演示数据 */}
+                {/* 需求指定文案：数据源：NewsData.io / 聚合数据（中文媒体国际报道）/ Mock 演示数据 */}
                 {dataSourceBadgeText(dataSource)}
               </Badge>
             ) : null}
@@ -196,7 +196,12 @@ export function NewsDrawer({
                 <NewsCard key={`${country.code}-${date}-${item.rank}`} item={item} />
               ))}
               <p className="pt-1 text-center text-[11px] leading-relaxed text-muted-foreground">
-                {dataSource === "juhe" ? (
+                {dataSource === "newsdata" ? (
+                  <>
+                    数据来自 NewsData.io（dataSource: newsdata），由服务端按国家与主要语言查询头条；
+                    页面只请求 <code>/api/news/top</code>，浏览器不会直连 NewsData.io，也不会接触 API Key。
+                  </>
+                ) : dataSource === "juhe" ? (
                   <>
                     数据来自聚合数据「新闻头条」国际新闻池（dataSource: juhe），
                     由服务端按关键词与来源域名两级过滤后取最新 {items.length} 条；
