@@ -201,6 +201,42 @@ git push -u origin main
 | `JUHE_TIMEOUT_MS` | `10000` | 单次请求超时 |
 | `GDELT_*` | 见 `.env.example` | 切到 GDELT 时才需要 |
 
+### 4.5 本机 git 环境的两个坑（2026-10-07 实测记录）
+
+这台 Windows 上装了 **Steam++（Watt Toolkit）**，它的「GitHub 加速」会改写
+`C:\Windows\System32\drivers\etc\hosts`，把 `github.com` / `api.github.com` /
+`raw.githubusercontent.com` 等统统指向 `127.0.0.1`，再由它自己的本地进程用**自签的
+`SteamTools Certificate`** 接管 HTTPS（该根证书已装进 Windows 证书库）。后果：
+
+| 现象 | 原因 |
+| --- | --- |
+| 浏览器打开 GitHub 一切正常 | 浏览器信任 Windows 证书库里的 SteamTools 根证书 |
+| `git` 报 `unable to get local issuer certificate (20)` | git 的 OpenSSL 后端只信自带的 ca-bundle，不认识 SteamTools 根证书 |
+| `git` 换回 schannel 后报 `SEC_E_NO_CREDENTIALS` | 会话拿不到 Windows 凭据（这台机器上实测直接失败） |
+| 直接请求 `api.github.com` 的脚本/工具失败 | 域名被 hosts 指到 `127.0.0.1`，被判定为内网地址 |
+
+**结论：让 `git` 走 Clash Verge，而不是被 Steam++ 接管。** Clash 是规则代理、TLS 端到端，
+所以证书是 GitHub 真正的证书、校验能通过（实测 `git ls-remote` exit 0）：
+
+```powershell
+# Clash Verge 的混合端口——本机实测是 7897（不是很多教程里写的 7890）
+git config --global http.proxy  http://127.0.0.1:7897
+git config --global https.proxy http://127.0.0.1:7897
+git config --global http.sslBackend openssl
+
+# 自检：exit 0 且能列出 refs/heads/main 就说明通了
+git ls-remote origin
+git push -u origin main
+```
+
+- **Clash 没开时** git 会报 `Failed to connect to github.com:443 over proxy 127.0.0.1` ——
+  先启动 Clash Verge 再执行（代理端口没监听，与网络能不能出去无关）。
+- 若之前配过第三方加速前缀（`ghfast.top` 之类），记得清掉全局 URL 重写：
+  ```powershell
+  git config --global --unset url."https://ghfast.top/https://github.com/".insteadOf
+  ```
+  这类代理只加速下载、**不能 push**，而且会让你的登录凭据经手第三方服务器。
+
 ### 4.2 在 Vercel Dashboard 里设置（推荐）
 
 1. 进入项目 → **Settings** → 左侧 **Environment Variables**
