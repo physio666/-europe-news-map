@@ -11,12 +11,12 @@ on:
 
 # 同一分支连续推送时，取消上一次还在跑的构建
 concurrency:
-  group: ci-${{ github.ref }}
+  group: "ci-${{ github.ref }}"
   cancel-in-progress: true
 
 jobs:
   offline-checks:
-    name: typecheck + 离线自检 + build
+    name: "typecheck + 离线自检 + build"
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -37,13 +37,13 @@ jobs:
       - name: TypeScript 类型检查
         run: npm run typecheck
 
-      - name: Provider 离线自检（GDELT：FIPS 映射 / 解析 / 限流重试 / 缓存 / 兜底）
+      - name: "Provider 离线自检（GDELT：FIPS 映射 / 解析 / 限流重试 / 缓存 / 兜底）"
         run: npm run check:providers
 
-      - name: NewsData.io 离线自检（语言映射 / 字段映射 / 缓存 / 额度 / Key 不外泄）
+      - name: "NewsData.io 离线自检（语言映射 / 字段映射 / 缓存 / 额度 / Key 不外泄）"
         run: npm run check:newsdata
 
-      - name: 聚合数据离线自检（两级过滤 / 错误码 / 额度保护）
+      - name: "聚合数据离线自检（两级过滤 / 错误码 / 额度保护）"
         run: npm run check:juhe
 
       - name: 生产构建
