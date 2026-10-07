@@ -1,13 +1,20 @@
 # 欧洲每日新闻热点地图
 
+[![CI](https://github.com/physio666/-europe-news-map/actions/workflows/ci.yml/badge.svg)](https://github.com/physio666/-europe-news-map/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Next.js](https://img.shields.io/badge/Next.js-14.2-000000?logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Tests](https://img.shields.io/badge/离线自检-284%20项-brightgreen)](#验收结果)
+
 > 覆盖 **46 个欧洲国家/地区**的交互式新闻热度看板：悬停高亮国家、点击即看当日 Top 3 热点，支持按日期回溯。
-> 地图按数据源上色——**绿色 = 真实新闻**（聚合数据中文国际报道 / GDELT），**灰色 = 演示数据**，
+> 地图按数据源上色——**绿色 = 真实新闻**（NewsData.io / 聚合数据中文国际报道 / GDELT），**灰色 = 演示数据**，
 > 一眼看出哪些国家真有新闻。Next.js 14 App Router + TypeScript + Tailwind + shadcn/ui + react-simple-maps + d3-geo。
 
 覆盖 **46 个欧洲国家/地区**（ISO 3166-1 alpha-2）的每日新闻热点地图：点选国家即可查看当天的 Top 3 热点新闻，支持按日期切换，桌面端为右侧抽屉、移动端为底部抽屉。
 
 > **数据源可切换**（`NEWS_PROVIDER`，见下文「数据源」一节）：
 > - `mock`（默认）：本项目的 MockProvider，零外网依赖、数据完全确定
+> - `newsdata`：NewsData.io 真实新闻，**按国家（+主要语言）查询**，覆盖范围最广
 > - `juhe`：聚合数据「新闻头条」国际新闻池，关键词 + 来源域名两级过滤
 > - `gdelt`：GDELT DOC 2.0 公开 API 的真实新闻
 >
@@ -30,8 +37,9 @@ git push -u origin main        # 若本机连不上 github.com，见 DEPLOY.md�
 # 2) 在 https://vercel.com/new 导入该仓库（Framework 自动识别为 Next.js）
 
 # 3) 在 Vercel → Settings → Environment Variables 添加：
-#    NEWS_PROVIDER = juhe
-#    JUHE_NEWS_KEY = 你的聚合数据 AppKey      ← 只填在 Vercel，绝不提交进仓库
+#    NEWS_PROVIDER = newsdata
+#    NEWSDATA_API_KEY = 你的 NewsData.io API Key   ← 只填在 Vercel，绝不提交进仓库
+#    （或改用聚合数据：NEWS_PROVIDER = juhe + JUHE_NEWS_KEY = 你的聚合数据 AppKey）
 
 # 4) 点 Deploy（改过环境变量后记得 Redeploy），拿到 https://<项目名>.vercel.app
 ```
@@ -53,8 +61,10 @@ npm run dev
 可选的自检脚本（需要 dev server 正在运行）：
 
 ```bash
-npm run verify          # 接口 + 数据 + 参数校验（自动适配 mock/gdelt，24 项）
+npm run verify          # 接口 + 数据 + 参数校验（自动适配 mock/newsdata/juhe/gdelt，31 项）
 npm run check:providers # Provider 层离线自检：解析/兜底/缓存/节流/映射（81 项，不联网）
+npm run check:newsdata  # NewsData.io 离线自检：语言映射/URL/解析/映射/缓存/额度/兜底（119 项，不联网）
+npm run check:juhe      # 聚合数据离线自检（75 项，不联网；--live 才连网）
 npm run check:gdelt     # 真要连 GDELT 的实时检查（DE FR GB IT，遵守限流逐个查）
 npm run check:browser   # headless Chrome 端到端验收（96 项，mock 模式，自动截图到 artifacts/）
 npm run geo:build       # 重新生成 public/geo/*.geojson
@@ -75,24 +85,114 @@ npm run clean           # 清掉 .next / .next-dev*
 
 ---
 
-## 数据源：mock / gdelt / juhe
+## 数据源：mock / newsdata / juhe / gdelt
 
 用环境变量切换，**默认 mock**（模板见 `.env.example`）：
 
 ```bash
-# .env.local
-NEWS_PROVIDER=juhe
-JUHE_NEWS_KEY=你的聚合数据AppKey
+# .env.local —— 优先用 NewsData.io 拿真实新闻
+NEWS_PROVIDER=newsdata
+NEWSDATA_API_KEY=你的NewsData.ioAPIKey
+
+# 或者继续用聚合数据
+# NEWS_PROVIDER=juhe
+# JUHE_NEWS_KEY=你的聚合数据AppKey
 ```
 
 | 模式 | 行为 |
 | --- | --- |
 | `mock` | MockProvider：确定性的 3 条假数据，零外网依赖 |
+| `newsdata` | NewsdataProvider：NewsData.io 真实新闻，**支持按国家 + 主要语言查询**（需要 `NEWSDATA_API_KEY`） |
 | `gdelt` | GdeltProvider：GDELT DOC 2.0 公开 API 的真实新闻（无需 Key） |
 | `juhe` | JuheProvider：聚合数据「新闻头条」国际新闻池 + 关键词/域名两级过滤（需要 `JUHE_NEWS_KEY`） |
 
-三种真实源遵守同一约定：**请求失败 / 解析失败 / 过滤后 0 条 → 自动回退 Mock**，
+四种真实源遵守同一约定：**请求失败 / 解析失败 / 过滤后 0 条 → 自动回退 Mock**，
 `dataSource` 变回 `mock`，并在 `X-Fallback-Reason` 响应头（百分号编码）里给出可诊断的原因。
+
+### 怎么切到 NewsData.io（三步）
+
+1. 去 [newsdata.io](https://newsdata.io/) 注册并复制 API Key（免费层 200 credits/天，足够本项目：
+   每个「国家 + 日期」1 小时只花 1 credit）。
+2. 编辑项目根目录的 `.env.local`（该文件已被 `.gitignore` 忽略，不会进仓库）：
+
+   ```bash
+   NEWS_PROVIDER=newsdata
+   NEWSDATA_API_KEY=你的Key          # 只从 process.env 读取：不硬编码、不打印日志、不下发浏览器
+   ```
+
+3. **重启 dev server**（环境变量只在进程启动时读一次），然后验证：
+
+   ```bash
+   npm run check:newsdata -- --live    # 逐国确认 DE/FR/GB/IT 能拿到真实新闻
+   curl "http://localhost:3000/api/news/top?country=DE&date=$(date +%F)"   # 看 dataSource 是否为 newsdata
+   ```
+
+   PowerShell：`Invoke-WebRequest "http://localhost:3000/api/news/top?country=DE&date=2026-10-07" -UseBasicParsing | % Headers`
+
+**失败时会发生什么**（这条链路是刻意设计的，源挂了也不会白屏）：
+
+| 情况 | 结果 |
+| --- | --- |
+| 没配 `NEWSDATA_API_KEY` | **不发任何请求**（省额度），直接回退 Mock，原因是「缺少 NEWSDATA_API_KEY」 |
+| Key 无效 / 被禁用（`Unauthorized`） | 回退 Mock，原因带上上游原话，并提示检查 `.env.local` |
+| 当日额度或频率用尽（`RateLimitExceeded` / `ApiLimitExceeded`） | 回退 Mock，提示 200 credits/天、明天再试 |
+| 该国不在覆盖范围（`UnsupportedFilter` + `invalid_country`） | 回退 Mock，原因里带上被拒绝的筛选值 |
+| 网络失败 / 超时 / 返回非 JSON | 回退 Mock，原因「请求 NewsData.io 失败：…」 |
+| 接口正常但 0 条 | 回退 Mock，原因「没有 DE 的可用新闻（上游 0 条…）」 |
+| 非今天的历史日期 | 回退 Mock（免费层只能查最新新闻），绝不拿今天的新闻冒充历史日期 |
+
+以上所有情况都返回 **HTTP 200 + 3 条 Mock 数据 + `dataSource:"mock"`**，地图变灰、「阅读原文」自动变成
+「暂无原文链接」，前端不需要任何特判。
+
+### NewsdataProvider 的关键实现（NewsData.io）
+
+端点 `https://newsdata.io/api/1/news`，`GET`，参数 `apikey` / `country` / `language` / `category=top` / `size=10`：
+
+```
+https://newsdata.io/api/1/news?apikey=***&country=de&language=de&category=top&size=10
+```
+
+与聚合数据最大的区别：**它天生支持按国家查询**，所以不需要「从国际新闻池里做关键词过滤」那一套，
+实现重点变成「语言映射」和「省 credit」：
+
+1. **国家 → 语言映射**（`COUNTRY_LANGUAGE`，共 38 个国家）：需求给的 27 个（DE→de、FR→fr、GB→en、
+   IT→it、ES→es、PL→pl、NL→nl、SE→sv、NO→no、FI→fi、DK→da、IE→en、PT→pt、GR→el、CZ→cs、
+   AT→de、CH→de、BE→nl、HU→hu、RO→ro、BG→bg、HR→hr、SK→sk、SI→sl、RS→sr、UA→uk、RU→ru）
+   之外，补齐了语言同样明确的 11 个（AL→sq、BA→bs、CY→el、EE→et、IS→is、LT→lt、LV→lv、
+   MD→ro、ME→sr、MK→mk、XK→sq），表里一共 38 个国家。
+   **微型国家与语言混杂的国家刻意不传 `language`**（AD/LI/MC/SM/VA、BY、LU、MT）——
+   需求也是这么建议的：传错语言只会拿到 0 条，不传最多是语言杂一些。
+2. **额度模型**：免费层 **200 credits/天，每次请求 1 credit**，`size` 上限 10（我们只取前 3 条）。
+   三层保护，和聚合数据同款但更宽松：
+   - **per-country 结果缓存**：key = `国家|日期`，TTL **1 小时**（`NEWSDATA_CACHE_TTL_MS`）——
+     同一国家同一小时反复刷新只花 **1 credit**；
+   - **全局串行 + 最小间隔 1 秒**（`NEWSDATA_MIN_INTERVAL_MS`，跨国家共用一条节奏）；
+   - **当日调用上限保护**（`NEWSDATA_DAILY_LIMIT`，默认 200）＋失败后 60 秒短路
+     （鉴权/额度类错误重试只会继续烧额度）。
+   还有 5 分钟**短负缓存**：确认「这个国家这天没有新闻」后短时间内不再戳上游。
+   响应头 `X-Newsdata-Stats`（`cache=hit;lang=de;returned=10;calls=1`）一眼看清是否花掉了 credit。
+3. **错误处理按官方 OpenAPI 的 `ErrorCode` 码表分类**（不是猜的）：`Unauthorized` / `AccessDenied` →
+   鉴权（提示检查 `NEWSDATA_API_KEY`）、`RateLimitExceeded` / `ApiLimitExceeded` → 额度、
+   `UnsupportedFilter`（附 `invalid_country`）→ 该国不在覆盖范围、其余 `Unsupported*` / `Invalid*` /
+   `TooMany*` → 参数问题。**真实的错误形状是 `{"status":"error","results":{"code","message"}}`**
+   （实测无效 Key 返回 HTTP 401 就是这个），所以 `results` / `error` 两种形状都兼容；
+   错误码会被翻成人话写进 `X-Fallback-Reason`，并被百分号编码以避免 latin-1 头问题。
+4. **字段映射**：`title`←`title`、`sourceName`←`source_name`、`url`←`link`、`description`←`description`（可为空）、
+   `imageUrl`←`image_url`（**只保留 https**，否则 https 页面会按混合内容拦掉图片）、
+   `publishedAt`←`pubDate`（`"2024-01-01 12:00:00"` → `2024-01-01T12:00:00Z`；官方文档说明该字段是
+   「请求所用 timezone 的墙上时间」，我们从不下发 `timezone`（默认 UTC），所以补 `Z`），
+   `score` 沿用 0.95 / 0.88 / 0.81。标题为空或没有可跳转链接的条目会被丢弃（避免「点不开的死卡片」）。
+5. **历史日期**：免费层只能查**最新新闻**（`from_date`/`to_date` 属付费能力）。因此请求非今天日期时，
+   Provider 会按 `pubDate` 再做一次日期校验，没有当天稿件就回退并说明「该接口无法回溯历史日期」——
+   绝不拿今天的新闻冒充历史日期（`strictDate`，与聚合数据口径一致）。
+6. **Key 安全**：只从 `process.env.NEWSDATA_API_KEY` 读取，**不硬编码、不打印日志**（日志 URL 统一
+   `apikey=***` 脱敏）、不下发浏览器、不进 `X-Fallback-Reason`；未配置时**不发请求**直接回退并说明原因。
+   `scripts/check-newsdata.mts` 里专门有两条断言守着「Key 不出现在失败原因与日志里」。
+
+> **实测（本机）**：配一个无效 Key 打真实接口，服务端拿到 `HTTP 401` +
+> `{"status":"error","results":{"code":"Unauthorized","message":"The provided API key is not valid."}}`，
+> 接口返回 `HTTP 200` + `dataSource:"mock"` + 3 条演示数据 + `X-Fallback-Reason`（百分号编码的中文原因），
+> 页面不报错 —— 与「源挂了也不能白屏」的设计一致。
 
 ### JuheProvider 的关键实现（聚合数据）
 
@@ -144,20 +244,28 @@ JUHE_NEWS_KEY=你的聚合数据AppKey
 
 | 数据源 | 覆盖特点 | 代价 |
 | --- | --- | --- |
-| `juhe`（聚合数据，当前） | 中文媒体国际报道，大国命中好、小国常回退 | 需要 AppKey，免费额度约 50 次/天 |
+| `newsdata`（NewsData.io，**推荐**） | **按国家 + 语言查询**，全球媒体索引，覆盖范围优于聚合数据，小国也可能有数据 | 需要 API Key；免费层 200 credits/天、单次 10 条、只给最新新闻 |
+| `juhe`（聚合数据） | 中文媒体国际报道，大国命中好、小国常回退 | 需要 AppKey，免费额度约 50 次/天 |
 | `gdelt` | 全球媒体索引，按 FIPS 国家过滤，覆盖国家多 | 官方限流「每 5 秒 1 次」，网络不稳时会回退 |
-| `gnews` / 其他 | 按国家/语言查询的付费或限额 API，覆盖更全 | 需要 Key 与额度预算；接入方式与 juhe 相同（只改 Provider 层） |
+| `gnews` / 其他 | 按国家/语言查询的付费或限额 API，覆盖更全 | 需要 Key 与额度预算；接入方式与 newsdata/juhe 相同（只改 Provider 层） |
+
+> **为什么 NewsData.io 的覆盖优于聚合数据**：聚合数据查的是**中文媒体的国际报道**，
+> 只有被中文媒体报道过的国家才有稿子；而 NewsData.io 直接按 `country` 过滤各国本地媒体，
+> 返回多语言新闻（`language=de/fr/…`），所以冰岛、卢森堡、马耳他这类小国也有机会拿到真实新闻。
+> 仍拿不到的国家（微型国家、或该国当天确实没有头条）会返回 0 条 →
+> **按设计自动回退 Mock**，`dataSource=mock`、地图显示灰色，页面不报错。
 
 ### 数据源可视化（地图绿/灰 + 徽标）
 
-- **地图配色**：<span>🟢</span> 绿 = 真实新闻（聚合数据）；<span>⚪</span> 灰 = 演示数据（Mock，含真实源失败后的回退）；
+- **地图配色**：<span>🟢</span> 绿 = 真实新闻（NewsData.io / 聚合数据 / GDELT）；<span>⚪</span> 灰 = 演示数据（Mock，含真实源失败后的回退）；
   浅色 = 本次会话尚未查询（不谎称是 mock，也不假装有数据）。
 - **`GET /api/news/sources?date=YYYY-MM-DD`** 返回全部国家的数据源状态：
-  `{ date, provider, countries: { DE: { dataSource: "juhe", itemCount: 2 }, AD: { dataSource: "mock", itemCount: 3 }, … }, summary }`。
+  `{ date, provider, countries: { DE: { dataSource: "newsdata", itemCount: 3 }, AD: { dataSource: "mock", itemCount: 3 }, … }, summary }`。
   **它不发起任何上游请求**（响应头 `X-Upstream-Calls: 0`）：服务端只记录「用户真的点过哪些国家」，
-  未点过的国家一律 `unknown` —— 否则为了统计把 46 个国家都查一遍，会瞬间打光 50 次/天的免费额度。
+  未点过的国家一律 `unknown` —— 否则为了统计把 46 个国家都查一遍，会白白消耗线上额度。
 - **点击国家后地图颜色与统计同步刷新**：前端在新闻落地后重新拉一次快照（纯读缓存，零成本）。
-- **徽标文案**：`数据源：聚合数据（中文媒体国际报道）` / `数据源：Mock 演示数据`（顶栏与抽屉同步显示）。
+- **徽标文案**：`数据源：NewsData.io` / `数据源：聚合数据（中文媒体国际报道）` / `数据源：Mock 演示数据`
+  （顶栏与抽屉同步显示，由 `lib/news-sources.ts` 的 `dataSourceLabel()` 一处决定，**前端组件不用改**）。
 - **「阅读原文」按钮按 `item.url` 判断，不看 dataSource**：真实链接 →
   `<a href target="_blank" rel="noopener noreferrer">阅读原文</a>` 可跳转；
   `url` 为空或 `#` → 真正的 `<button disabled>`「暂无原文链接」，而不是给 `<a>` 挂 onClick 拦截。
@@ -191,7 +299,18 @@ JUHE_NEWS_KEY=你的聚合数据AppKey
 
 | 变量 | 默认 | 说明 |
 | --- | --- | --- |
-| `NEWS_PROVIDER` | `mock` | `mock` \| `gdelt` |
+| `NEWS_PROVIDER` | `mock` | `mock` \| `newsdata` \| `juhe` \| `gdelt` |
+| `NEWSDATA_API_KEY` | 空 | NewsData.io API Key（**必填**，只从 env 读，未配置时不发请求直接回退） |
+| `NEWSDATA_API_BASE` | 官方 `/api/1/news` | 便于走代理或指向镜像 |
+| `NEWSDATA_CATEGORY` | `top` | 头条分类（留空则不传 category） |
+| `NEWSDATA_SIZE` | `10` | 每次向上游要多少条（免费层上限 10） |
+| `NEWSDATA_TIMEOUT_MS` | `12000` | 单次请求 socket 超时（连接+读取） |
+| `NEWSDATA_MIN_INTERVAL_MS` | `1000` | 全局最小请求间隔（全局串行） |
+| `NEWSDATA_CACHE_TTL_MS` | `3600000` | per-country 结果缓存 TTL（key = 国家\|日期，省 credit 的关键） |
+| `NEWSDATA_DAILY_LIMIT` | `200` | 当日上游调用上限保护 |
+| `NEWSDATA_FAILURE_COOLDOWN_MS` | `60000` | 上游失败后的短路时长 |
+| `JUHE_NEWS_KEY` | 空 | 聚合数据 AppKey（用 juhe 时必填） |
+| `JUHE_*` | 见 `.env.example` | 聚合并发/额度/分页调优 |
 | `GDELT_API_BASE` | 官方 DOC 2.0 端点 | 便于走代理或指向镜像 |
 | `GDELT_TIMEOUT_MS` | `12000` | 单次请求 socket 超时（连接+读取） |
 | `GDELT_TOTAL_BUDGET_MS` | `30000` | 一次取数总预算，超了直接回退（= 用户最长等待时间） |
@@ -210,7 +329,7 @@ JUHE_NEWS_KEY=你的聚合数据AppKey
 | 地图 | react-simple-maps 3 + d3-geo 3（`geoAzimuthalEqualArea` + `fitExtent`） |
 | 地图数据 | Natural Earth 1:50m，经 `world-atlas` 转换并补上 `ISO_A2` 属性 |
 | 交互原语 | Radix UI（Dialog / Popover / Slot）、lucide-react 图标 |
-| 数据源 | 自实现的 `MockProvider`（确定性、无网络、无 Key） |
+| 数据源 | 可切换的 Provider：`Mock`（默认）/ `NewsData.io` / `聚合数据` / `GDELT`，失败自动回退 Mock |
 
 ---
 
@@ -232,9 +351,15 @@ components/
   ui/                            shadcn/ui 组件：button / card / sheet / badge / skeleton / popover
 lib/
   countries.ts                   46 个国家的唯一事实来源（中文名、numeric、首都坐标、别名）
+  news-sources.ts                数据源 → 中文标签/徽标文案/地图配色（纯函数，服务端与客户端共用）
   providers/types.ts             NewsItem / NewsProvider / TopNewsResponse 契约
   providers/mock-provider.ts     MockProvider 实现
-  providers/index.ts             提供者工厂（将来换真实数据源只改这里）
+  providers/newsdata-provider.ts NewsData.io Provider（国家→语言映射、解析、缓存、额度保护）
+  providers/juhe-provider.ts     聚合数据 Provider（两级过滤、新闻池缓存、额度保护）
+  providers/gdelt-provider.ts    GDELT Provider（FIPS 映射、限流重试）
+  providers/index.ts             提供者工厂 + 「真实源失败 → 回退 Mock」的唯一实现处
+  providers/ttl-cache.ts         带 TTL 与并发合并的内存缓存
+  providers/http.ts              node:https/http 封装的 GET（可配超时 + Key 脱敏）
   geo.ts                         投影构建、视野框、GeoJSON 加载与类型
   heat.ts                        国旗 emoji、Mock 热度配色、图例
   date.ts                        日期纯函数（校验 / 加减 / 日历网格 / 中文格式化）
@@ -243,7 +368,10 @@ lib/
   use-media-query.ts             移动端判定（决定抽屉方向）
 scripts/
   build-geo.mts                  由 world-atlas 生成 public/geo/*.geojson
-  verify.mts                     接口与数据自检
+  verify.mts                     接口与数据自检（自动适配当前数据源）
+  check-providers.mts            GDELT 离线自检
+  check-newsdata.mts             NewsData.io 离线自检（--live 才连网）
+  check-juhe.mts                 聚合数据离线自检（--live 才连网）
   browser-check.mts              headless Chrome 端到端验收（CDP，零依赖）
 public/geo/
   europe.geojson                 46 个目标国家（含 ISO_A2）
@@ -286,6 +414,32 @@ public/geo/
 ```
 
 错误响应统一为 `{ "error": "unsupported_country", "message": "…" }` 并返回 400。
+
+`NEWS_PROVIDER=newsdata` 时（有可用 Key、当天有稿）返回真实新闻，字段结构完全相同，只是值来自上游：
+
+```json
+{
+  "country": "DE",
+  "date": "2026-10-07",
+  "dataSource": "newsdata",
+  "items": [
+    {
+      "rank": 1,
+      "title": "Bundestag beschließt neues Energiepaket",
+      "sourceName": "Spiegel Online",
+      "publishedAt": "2026-10-07T09:47:15Z",
+      "url": "https://www.spiegel.de/politik/…",
+      "description": "Der Bundestag hat am Mittwoch …",
+      "imageUrl": "https://cdn.example.com/…jpg",
+      "score": 0.95
+    }
+  ]
+}
+```
+
+响应头附带诊断信息：`X-Data-Source: newsdata`、`X-Provider-Mode: newsdata`、
+`X-Newsdata-Stats: cache=miss;lang=de;returned=10;calls=1`；一旦回退 Mock，还会多出
+`X-Fallback-Reason`（百分号编码，`decodeURIComponent` 即可读）。
 
 ### MockProvider 的确定性
 
@@ -365,14 +519,33 @@ public/geo/
 
 ## 验收结果
 
-三套脚本（Next 14.2.35 / Node 24.20 / Chrome headless 1440×900 与 390×844）：
+四套脚本（Next 14.2.35 / Node 24.20 / Chrome headless 1440×900 与 390×844）：
 
 ```
 npm run check:providers → 🎉 全部通过：81/81   （离线：FIPS 映射、URL、解析、去重、限流重试、缓存、兜底、Mock 回归）
-npm run verify          → 🎉 全部通过：24/24   （mock 模式与 gdelt 模式都跑过，自动适配断言）
+npm run check:newsdata  → 🎉 全部通过：119/119 （离线：语言映射、URL、解析、字段映射、缓存、额度、兜底、Key 不外泄）
+npm run check:juhe      → 🎉 全部通过：75/75   （离线：过滤规则、错误码、额度保护、兜底）
+npm run verify          → 🎉 全部通过：31/31   （newsdata / mock / gdelt 模式都跑过，自动适配断言）
 npm run check:browser   → 🎉 浏览器验收全部通过：97/97  （mock 模式）
 npm run build           → ✓ Compiled successfully
 ```
+
+`newsdata` 模式的实测（本机，用**无效 Key** 打真实接口，验证「失败也要优雅」这条链路）：
+
+```
+$env:NEWS_PROVIDER="newsdata"; npm run dev
+GET /api/news/top?country=DE&date=2026-10-07
+  → 200  X-Data-Source: mock  X-Provider-Mode: newsdata
+  → dataSource="mock"，3 条演示数据，页面不报错
+  → X-Fallback-Reason（解码后）：NewsData.io 拒绝了请求（Unauthorized）：The provided API key is not valid.
+     —— 请检查 .env.local 里的 NEWSDATA_API_KEY（HTTP 401）
+
+npm run verify
+  → 🎉 全部通过：31/31（[5.1] 断言「newsdata 模式已按设计回退（原因：…）」）
+```
+
+配上真实 Key 后，同一路径会返回 `dataSource="newsdata"`、`X-Newsdata-Stats: cache=miss;lang=de;returned=10;calls=1`，
+以及 3 条德/英等原语言的真实新闻（`npm run check:newsdata -- --live` 可一键逐国确认 DE/FR/GB/IT）。
 
 `npm run check:browser` 逐条对应验收标准（真实 CDP 鼠标输入，不是合成事件）：
 
@@ -414,7 +587,9 @@ npm run check:gdelt -- DE
 
 ## 接别的真实数据源要改什么
 
-GDELT 已经接完，再换一个源同样只动 Provider 层：
+GDELT 与 NewsData.io 已经接完，再换一个源同样只动 Provider 层（NewsData.io 就是这么加的：
+新增 `lib/providers/newsdata-provider.ts` + `index.ts` 里一个分支 + `lib/news-sources.ts` 一行徽标文案，
+**页面/抽屉/卡片一行都没改**）：
 
 1. 新建 `lib/providers/<new>-provider.ts`，实现同一个接口：
 
@@ -429,3 +604,41 @@ GDELT 已经接完，再换一个源同样只动 Provider 层：
 
 提醒：`NewsItem.imageUrl` 现在允许内联 data URI；换成远程图片时记得同步配置 `next.config.mjs` 的
 `images.remotePatterns`（当前刻意留空，以便从配置层面保证不会偷偷发出外部请求）。
+
+---
+
+## 开源与贡献
+
+### 许可
+
+本项目采用 **MIT License**（见 [LICENSE](./LICENSE)）：可以自由使用、修改、分发，包括商业用途，
+只需在副本中保留版权与许可声明。没有附文档或源码的再分发同样允许。
+
+### 持续集成
+
+[`.github/workflows/ci.yml`](./.github/workflows/ci.yml) 在每次 push / PR 时运行，**全部离线、不需要任何 Key**：
+
+```bash
+npm run typecheck        # tsc --noEmit
+npm run check:providers  # GDELT：FIPS 映射、解析、限流重试、缓存、兜底（81 项）
+npm run check:newsdata   # NewsData.io：语言映射、字段映射、缓存、额度、Key 不外泄（128 项）
+npm run check:juhe       # 聚合数据：两级过滤、错误码、额度保护（75 项）
+npm run build            # 生产构建（NEWS_PROVIDER=mock）
+```
+
+这一层刻意的设计是：**没有 Key 也能完整验证 Provider 逻辑**。三个 `check:*` 脚本都用一个可注入的 HTTP stub
+把「上游的每种失败方式」都钉死（0 条、限流、鉴权失败、非 JSON、超时、脏数据、额度耗尽），
+所以 fork 之后无需申请任何 API Key 就能确认自己的改动没有破坏行为。
+
+### 想贡献代码
+
+1. Fork → 建分支（`feat/xxx`）→ 改代码
+2. **本地先跑一遍 CI 的五条命令**（都不联网）
+3. 提 PR，并在描述里写清「动机 + 验证方式」；涉及数据源的改动请附上 `check:*` 的输出
+
+> ⚠️ **永远不要把 API Key 提交进仓库**。Key 只放在 `.env.local`（已被 `.gitignore` 忽略），
+> 线上放在 Vercel 的环境变量里。若不慎推过 Key，请立刻到对应平台吊销并重新申请 —— 密钥一旦进了
+> Git 历史，即使 `git rm` 也仍然可以从旧提交里读到。
+>
+> 本项目为此做了三重保护：`.gitignore` 忽略 `.env*`、`.env.example` 只放占位符、
+> `check:newsdata` 里有两条断言专门守着「Key 不出现在失败原因与日志里」。

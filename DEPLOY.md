@@ -67,12 +67,29 @@ nextjs  typescript  tailwindcss  shadcn-ui  react-simple-maps  d3-geo  geojson  
 | 就近区域 | ✅ 声明了 `preferredRegion = "hkg1"`（香港，离聚合数据与国内读者最近） |
 | HTTPS 混合内容 | ✅ 已修：聚合数据的 `http://` 缩略图会被浏览器拦截，现在只保留 `https` 图片 |
 
+### 仓库现状（截至 2026-10-07）
+
+GitHub 上的仓库**已经建好并且是 public**：`https://github.com/physio666/-europe-news-map`
+（2026-09-28 创建，描述已填好），但它**至今是空的**（GitHub API `"size": 0`）——
+本地 4 个提交从未推上去（`git rev-parse @{u}` 报 `no upstream configured`）。
+所以你现在只差「步骤 2 的一次 push」，不需要再建仓库。
+
+两个需要注意的细节：
+
+1. **仓库名带一个前导连字符**（`-europe-news-map`，多半是当初手滑），URL 合法但不美观。
+   想改：仓库页 → **Settings** → **Repository name** 改成 `europe-news-map` → GitHub 会自动跳转旧地址。
+2. **原来的 `origin` 指向第三方加速代理** `https://ghfast.top/https://github.com/...`。
+   这类代理只加速**下载**、**不能 push**，而且会让你的登录凭据经过第三方。
+   已改为直连 `https://github.com/...`（本机 `github.com:443` 实测可达）。
+
 ---
 
 ## 步骤 1：在 GitHub 上建一个空仓库
 
+> 你的仓库已存在（见上），这一步可以跳过。以下是**给别人的**完整流程，也便于你重建时参考。
+
 1. 打开 <https://github.com/new>
-2. **Repository name**：`europe-news-map`
+2. **Repository name**：`europe-news-map`（不要以连字符开头）
 3. **Public / Private 都可以**（Vercel 免费计划两种都支持；私有仓库也能部署）
 4. **不要**勾选 `Add a README file` / `.gitignore` / `license`（本地已有内容，勾了会冲突）
 5. 点 **Create repository**
@@ -84,12 +101,14 @@ nextjs  typescript  tailwindcss  shadcn-ui  react-simple-maps  d3-geo  geojson  
 
 ## 步骤 2：把本地代码推上去
 
-### 走法 A：本机能直连 github.com（最省事）
+### 走法 A：本机能直连 github.com（推荐，你现在的情况）
 
 ```powershell
 cd "C:\Users\physio\Documents\deepseek harness\europe-news-map"
 
-git remote add origin https://github.com/<你的用户名>/europe-news-map.git
+# 指向真实仓库（去掉第三方加速前缀）
+git remote set-url origin https://github.com/physio666/-europe-news-map.git
+
 git push -u origin main
 ```
 
@@ -100,7 +119,7 @@ git push -u origin main
 > ⚠️ **不要把 Token 粘贴到聊天窗口**。如果 `git push` 反复失败、提示认证问题，
 > 用 `cred_hint` 这类凭据助手流程处理，而不是把 Token 发出来。
 
-### 走法 B：本机连不上 github.com（你现在的情况）
+### 走法 B：本机连不上 github.com
 
 任选其一：
 
@@ -115,6 +134,13 @@ git push -u origin main
    ```
 4. **通过网页上传**：GitHub 仓库页 → `Add file` → `Upload files`，把整个项目目录拖进去
    （**先确认本地没有把 `.env.local` 拖进去**；网页上传无法执行 `.gitignore`，这一步必须自己检查）。
+
+> ⚠️ **`ghfast.top` 这类加速代理不能用来 push**：它只加速下载（clone/fetch），
+> 而且会把你的登录凭据经手第三方。`git push` 必须直连 `github.com`
+> （或走你自己的代理，见上面第 3 条）。曾经配过的代理地址可以这样去掉：
+> ```powershell
+> git remote set-url origin https://github.com/physio666/-europe-news-map.git
+> ```
 
 推送成功后刷新仓库页面，应能看到 `app/ components/ lib/ public/ scripts/` 等目录。
 
@@ -151,13 +177,21 @@ git push -u origin main
 
 | 变量名 | 值 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `NEWS_PROVIDER` | `juhe` | ✅ | 数据源：`mock` \| `gdelt` \| `juhe`。不填默认 `mock`（全站演示数据） |
+| `NEWS_PROVIDER` | `newsdata` | ✅ | 数据源：`mock` \| `newsdata` \| `juhe` \| `gdelt`。不填默认 `mock`（全站演示数据） |
+| `NEWSDATA_API_KEY` | 你的 NewsData.io API Key | ✅（用 newsdata 时） | **只填在 Vercel，绝不写进代码或仓库**；免费层 200 credits/天 |
 | `JUHE_NEWS_KEY` | 你的聚合数据 AppKey | ✅（用 juhe 时） | **只填在 Vercel，绝不写进代码或仓库** |
 
 以下都是**可选**调优项（不填即用括号里的默认值）：
 
 | 变量名 | 默认 | 说明 |
 | --- | --- | --- |
+| `NEWSDATA_CATEGORY` | `top` | 头条分类（留空则不传 category） |
+| `NEWSDATA_SIZE` | `10` | 每次向上游要多少条（免费层上限 10） |
+| `NEWSDATA_CACHE_TTL_MS` | `3600000` | per-country 结果缓存 TTL（key = 国家\|日期，省 credit 的关键） |
+| `NEWSDATA_MIN_INTERVAL_MS` | `1000` | 全局最小请求间隔（全局串行） |
+| `NEWSDATA_DAILY_LIMIT` | `200` | 当日上游调用上限保护 |
+| `NEWSDATA_TIMEOUT_MS` | `12000` | 单次请求超时 |
+| `NEWSDATA_FAILURE_COOLDOWN_MS` | `60000` | 上游失败后的短路时长 |
 | `JUHE_NEWS_TYPE` | `guoji` | 分类 |
 | `JUHE_PAGE` / `JUHE_PAGE_SIZE` | `1` / `30` | 分页（page 最大 50，page_size 最大 30） |
 | `JUHE_MIN_INTERVAL_MS` | `3000` | 全局最小请求间隔（保护 50 次/天额度） |
@@ -171,8 +205,9 @@ git push -u origin main
 
 1. 进入项目 → **Settings** → 左侧 **Environment Variables**
 2. 逐条添加：
-   - **Key**：`NEWS_PROVIDER`，**Value**：`juhe`
-   - **Key**：`JUHE_NEWS_KEY`，**Value**：你的 AppKey（粘贴后即为「加密存储」）
+   - **Key**：`NEWS_PROVIDER`，**Value**：`newsdata`（或 `juhe`）
+   - **Key**：`NEWSDATA_API_KEY`，**Value**：你的 NewsData.io API Key（用 newsdata 时）
+   - **Key**：`JUHE_NEWS_KEY`，**Value**：你的 AppKey（用 juhe 时；粘贴后即为「加密存储」）
 3. 每条变量的 **Environments** 勾选：**Production**（想让它对 PR 预览部署也生效就再勾 **Preview**）
 4. 点 **Save**
 5. 回到 **Deployments** 标签 → 最新一次部署右侧 **⋯** → **Redeploy**
@@ -207,6 +242,7 @@ npx vercel link                        # 关联到刚建的 Vercel 项目
 
 # 按环境分别添加（这里只加 production，需要预览部署就再来一次 --preview 用 preview）
 npx vercel env add NEWS_PROVIDER production
+npx vercel env add NEWSDATA_API_KEY production
 npx vercel env add JUHE_NEWS_KEY production
 
 npx vercel --prod                      # 重新部署到生产
@@ -215,7 +251,10 @@ npx vercel --prod                      # 重新部署到生产
 ### 4.4 如果不想用聚合数据
 
 - 想全站演示数据（零外部依赖、不会因额度耗尽而回退）：
-  把 `NEWS_PROVIDER` 设为 `mock`，`JUHE_NEWS_KEY` 可以留空。
+  把 `NEWS_PROVIDER` 设为 `mock`，`NEWSDATA_API_KEY` / `JUHE_NEWS_KEY` 可以留空。
+- 想换 NewsData.io：把 `NEWS_PROVIDER` 设为 `newsdata` 并填 `NEWSDATA_API_KEY`
+  （免费层 200 credits/天、每次请求 1 credit；**支持按国家查询**，覆盖范围比聚合数据广，
+  小国也可能有数据；免费层只能查最新新闻，选历史日期会按设计回退 Mock）。
 - 想换 GDELT：把 `NEWS_PROVIDER` 设为 `gdelt`（**不需要任何 Key**，但官方限流严格，
   国内访问 GDELT 不稳定，函数侧超时会自动回退 Mock，页面不会报错）。
 
