@@ -2,10 +2,13 @@
 
 [![CI](https://github.com/physio666/-europe-news-map/actions/workflows/ci.yml/badge.svg)](https://github.com/physio666/-europe-news-map/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Live Demo](https://img.shields.io/badge/demo-europe--news--map--app.vercel.app-000000?logo=vercel&logoColor=white)](https://europe-news-map-app.vercel.app)
 [![Next.js](https://img.shields.io/badge/Next.js-14.2-000000?logo=nextdotjs&logoColor=white)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Tests](https://img.shields.io/badge/离线自检-284%20项-brightgreen)](#验收结果)
 
+> 🔗 **在线演示**：<https://europe-news-map-app.vercel.app>（Vercel 部署，数据源 NewsData.io 真实新闻）
+>
 > 覆盖 **46 个欧洲国家/地区**的交互式新闻热度看板：悬停高亮国家、点击即看当日 Top 3 热点，支持按日期回溯。
 > 地图按数据源上色——**绿色 = 真实新闻**（NewsData.io / 聚合数据中文国际报道 / GDELT），**灰色 = 演示数据**，
 > 一眼看出哪些国家真有新闻。Next.js 14 App Router + TypeScript + Tailwind + shadcn/ui + react-simple-maps + d3-geo。

@@ -25,9 +25,15 @@ yarn-error.log*
 .env
 .env*.local
 
+# Vercel CLI 的本地项目关联（`vercel link` 生成，含 projectId，不该提交）
+.vercel
+
 # 沙箱内安装用的本地缓存（不提交）
 .tmp-npm/
 
 # 浏览器验收产生的临时 profile（截图会保留）
 /artifacts/.chrome-profile/
 /artifacts/.probe-profile/
+
+.vercel
+.env*
